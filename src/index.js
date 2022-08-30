@@ -61,7 +61,7 @@ const dataViewMethods = new Map([
 
 const DATA_IDENTIFIER = 'JSBI';
 
-export default function(babel) {
+module.exports = function(babel) {
   const {types: t} = babel;
 
   const createExpression = (path, name, args) => {
@@ -136,9 +136,13 @@ export default function(babel) {
   };
 
   const resolveBinding = (_path, name) => {
-    const binding = _path.scope.getBinding(name);
+
+    // MemberExpression的name，一定会出现在上下文中，getBinding获取上下文
+    const binding = _path.scope.getBinding(name); 
     if (binding === undefined) return;
+    // path是binding对应的实体
     const path = binding.path;
+    
     if (path.getData(DATA_IDENTIFIER)) return binding;
     const init = path.node.init;
     if (t.isVariableDeclarator(path) &&
@@ -154,6 +158,7 @@ export default function(babel) {
   };
 
   const setJSBIProperty = (path, data) => {
+    // setData 设置自定义值
     return path.setData(DATA_IDENTIFIER, data);
   };
 
@@ -169,12 +174,16 @@ export default function(babel) {
       Program: {
         exit() {
           for (const path of this.remove) {
-            path.remove();
+            path.remove(); // remove清空node，node是path的内容实质
           }
         },
       },
       ImportDeclaration(path) {
-        const source = path.node.source;
+        console.log('ImportDeclaration',path)
+        const source = path.node.source; 
+        // source是ImportDeclaration的来源
+        // import JSBI from "jsbi"; 的 "jsbi" 是 source
+        // question: ImportDeclaration的source可以不是isStringLiteral吗？
         if (t.isStringLiteral(source) &&
             // Match exact "jsbi" or ".../jsbi.mjs" paths.
             (/^jsbi$/i.test(source.value) ||
@@ -189,8 +198,15 @@ export default function(babel) {
       },
       VariableDeclarator(path) {
         const init = path.node.init;
-        if (t.isMemberExpression(init)) {
+        // const a = JSBI.BigInt 场景 ，
+        // path = 'const a = JSBI.BigInt'
+        // path.node.init = 'JSBI.BigInt'
+        if (t.isMemberExpression(init)) { 
+          // VariableDeclarator 变量定义和 MemberExpression 结合。变量别名的场景
+          // MemberExpression = 'JSBI.BigInt'
+          // MemberExpression 就是 object.property
           if (hasJSBIProperty(path, init.object.name)) {
+            // 
             setJSBIProperty(path,
                 getPropertyName(path.get('init.property')));
             this.remove.add(path);

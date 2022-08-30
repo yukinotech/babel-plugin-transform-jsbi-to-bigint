@@ -1,7 +1,9 @@
 const fs = require("fs");
 
-fs.readFileSync("./code.js", { encoding: "utf-8" });
+const code = fs.readFileSync("./code.js", { encoding: "utf-8" });
 
-require("@babel/core").transform(code, {
-  plugins: ["transform-jsbi-to-bigint"],
+const file = require("@babel/core").transform(code, {
+  plugins: ['./src/index.js'],
 });
+
+console.log(file.code)
